@@ -18,11 +18,16 @@ class FileDetails {
 
           System.out.print("Enter the file type: ");
           String type = input.nextLine();
+
+          //erase the leading . so no duplicate
+          while(type.startsWith(".")){
+               type = type.substring(1);
+          }
           this.fileType = type;
 
           System.out.print("How many pages does it have: ");
           int pages = input.nextInt();
-          input.nextLine(); //Added a new input so that it will clear the buffer
+          input.nextLine();
           this.filePages = pages;
      }
 
@@ -39,6 +44,19 @@ class FileDetails {
 class Printer {
      Scanner input = new Scanner(System.in);
      Queue<FileDetails> printingQueue = new java.util.LinkedList<>();
+     boolean isPrinting = false;
+     volatile boolean stopPrinting = false;
+
+     //for clearing the screen
+     public void clearScreen(){
+          try {
+               new ProcessBuilder("clear").inheritIO().start().waitFor();
+          } catch (Exception e) {
+               System.out.print("\033[2J\033[H");
+               System.out.flush();
+          }
+     }
+
 
      public void addPrintJob(){
           try {
@@ -53,6 +71,7 @@ class Printer {
           }
      }
 
+
      public void removePrintJob(){
           if(printingQueue.isEmpty()){
                System.out.println("Queue is empty. No job to remove.");
@@ -63,6 +82,7 @@ class Printer {
           }
      }
 
+
      public void startPrintJob(){
           if(printingQueue.isEmpty()){
                System.out.println("No print jobs in the queue.");
@@ -71,19 +91,53 @@ class Printer {
                System.out.print("Printing: ");
                currentJob.getFullFileName();
                System.out.println("Total pages: " + currentJob.getFilePages());
-               
+               System.out.println("(Press Enter to stop printing)");
+
+               stopPrinting = false;
+
+               Thread keyListener = new Thread(() -> {
+                    try {
+                         java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(System.in));
+                         reader.readLine();
+                         stopPrinting = true;
+                    } catch (Exception e) {
+                         stopPrinting = true;
+                    }
+               });
+               keyListener.setDaemon(true);
+               keyListener.start();
+
                try {
                     for(int i = 1; i <= currentJob.getFilePages(); i++){
-                         System.out.println("Printed page " + i + "/" + currentJob.getFilePages());
+                         if(stopPrinting) break;
+                         System.out.print("\rPrinted page " + i + "/" + currentJob.getFilePages() + "   ");
+                         System.out.flush();
                          TimeUnit.MILLISECONDS.sleep(500);
                     }
+
+                    System.out.print("\r\033[2K");
+                    System.out.flush();
+
                     printingQueue.poll();
-                    System.out.println("Print job completed successfully!");
+
+                    if(!stopPrinting){
+                         System.out.println("Print job completed successfully!");
+                    } else {
+                         System.out.println("Print was abruptly stopped by user.");
+                    }
+
+                    try {
+                         if(System.in.available() > 0){
+                              System.in.skip(System.in.available());
+                         }
+                    } catch (Exception e) {}
+
                } catch (InterruptedException e) {
                     System.out.println("Printing was interrupted!");
                }
           }
      }
+
 
      public void viewFullQueue(){
           if(printingQueue.isEmpty()){
@@ -98,6 +152,7 @@ class Printer {
                }
           }
      }
+
 
      public void quickQueueView(){
           System.out.println("\nQueueing " + printingQueue.size() + " of files. Ready to print");
@@ -123,10 +178,11 @@ public class PrintingQueueSimulation {
                }
           }
 
-          System.out.println("\n------Cabilao & Aldave Printer Shop------");
-
           Printer job = new Printer();
-          
+          job.clearScreen();
+
+          System.out.println("------Cabilao & Aldave Printer Shop------");
+
           boolean start = true;
 
           // To looping of the queue printing
@@ -139,11 +195,13 @@ public class PrintingQueueSimulation {
                System.out.println("[5] Quick Queue View");
                System.out.println("[6] Exit");
                System.out.print("\nChoose an option: ");
-               
+
                try {
                     int choice = job.input.nextInt();
                     job.input.nextLine();
-                    
+
+                    job.clearScreen();
+
                     switch(choice){
                          case 1:
                               job.addPrintJob();
@@ -167,6 +225,13 @@ public class PrintingQueueSimulation {
                          default:
                               System.out.println("Invalid choice! Please choose between 1-6.");
                     }
+
+                    if(start){
+                         Thread.sleep(800);
+                         job.clearScreen();
+                         System.out.println("------Cabilao & Aldave Printer Shop------");
+                    }
+
                } catch (Exception e) {
                     System.out.println("Invalid input type! Please enter a number.");
                     job.input.nextLine();

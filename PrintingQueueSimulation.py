@@ -1,0 +1,4 @@
+
+class fileDetails():
+    fileName
+    fileType
