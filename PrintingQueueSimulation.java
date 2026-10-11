@@ -29,12 +29,19 @@ class FileDetails {
                name = input.nextLine().trim();
 
                if (name.isEmpty()) {
-                    System.out.println("\n*Invalid input! File name cannot be empty.*");
-                    continue;
+                    System.out.println("\n*Invalid input! File name cannot be empty. Returning to the menu...*");
+                    return;
                }
 
                if (hasInvalidChar(name)) {
                     System.out.println("\n*Invalid input! File name must not contain any of these characters: % $ . , ^ + = * !*");
+                    try {
+                         Thread.sleep(1500);
+                    } catch (InterruptedException e) {
+                         Thread.currentThread().interrupt();
+                    }
+                    System.out.print("\033[H\033[2J");
+                    System.out.flush();
                     continue;
                }
 
@@ -44,6 +51,10 @@ class FileDetails {
           this.fileName = name;
 
           this.fileType = Printer.selectFileTypeStatic(fileName);
+
+          System.out.print("\033[H\033[2J");
+          System.out.flush();
+          System.out.println("\nFile name: " + getFullFileName());
 
           System.out.print("\nHow many pages does it have: ");
 
@@ -206,7 +217,7 @@ class Printer {
           // connected sa checking input text... ug checking name is empti
           if (newFile.fileName == null || newFile.fileName.isEmpty() || newFile.getFilePages() == -1) {
                return;
-          }
+          } //not working the ie name is empty
 
           //added a limit para dili usahon ang >500 pages
           if (newFile.getFilePages() <= 0 || newFile.getFilePages() > 500) {
@@ -220,11 +231,73 @@ class Printer {
      }
 
 
+     public int selectJobToRemove(){
+          java.util.List<FileDetails> jobs = new java.util.ArrayList<>(printingQueue);
+          int selectedIndex = 0;
+          int totalOptions = jobs.size() + 1;
+
+          enableRawInput();
+          try {
+               while (true) {
+                    System.out.print("\033[H\033[2J");
+                    System.out.flush();
+
+                    System.out.println("-----------Remove Print Job-----------");
+
+                    System.out.println("\n*Use Up/Down, then press Enter to remove the selected file.*\n");
+                    for (int i = 0; i < jobs.size(); i++) {
+                         String label = (i + 1) + ". " + jobs.get(i).getFullFileName() + " | Pages: " + jobs.get(i).getFilePages();
+                         if (i == selectedIndex) {
+                              System.out.println("   > " + label);
+                         } else {
+                              System.out.println("     " + label);
+                         }
+                    }
+                    if (selectedIndex == jobs.size()) {
+                         System.out.println("\n   > Back to Menu");
+                    } else {
+                         System.out.println("\n     Back to Menu");
+                    }
+
+                    int c = readKey();
+
+                    if (c == 27) {
+                         int c2 = readKey();
+                         int c3 = readKey();
+                         if (c2 == 91) {
+                              if (c3 == 65) {
+                                   selectedIndex = (selectedIndex - 1 + totalOptions) % totalOptions;
+                              } else if (c3 == 66) {
+                                   selectedIndex = (selectedIndex + 1) % totalOptions;
+                              }
+                         }
+                    } else if (c == 10 || c == 13) {
+                         if (selectedIndex == jobs.size()) {
+                              return -1;
+                         }
+                         return selectedIndex;
+                    }
+               }
+          } finally {
+               restoreTerminal();
+          }
+     }
+
+
      public void removePrintJob(){
           if(printingQueue.isEmpty()){
                System.out.println("\n*Queue is empty. No job to remove.*");
           } else {
-               FileDetails removed = printingQueue.poll();
+               int index = selectJobToRemove();
+               clearScreen();
+
+               if(index == -1){
+                    System.out.println("\n*Remove cancelled. Returning to the menu...*");
+                    return;
+               }
+
+               FileDetails removed = new java.util.ArrayList<>(printingQueue).get(index);
+               printingQueue.remove(removed);
                System.out.println("\n*Removed job: " + removed.getFullFileName() + "*");
           }
      }
@@ -240,6 +313,21 @@ class Printer {
           } catch (Exception e) {
           }
           return false;
+     }
+
+     private boolean askStartNext(FileDetails next){
+          while(true){
+               System.out.print("\n*The next print \"" + next.getFullFileName() + "\" will be started (y/n)?* ");
+               String answer = input.nextLine().trim();
+
+               if(answer.equalsIgnoreCase("y")){
+                    return true;
+               }
+               if(answer.equalsIgnoreCase("n")){
+                    return false;
+               }
+               System.out.println("\n*Invalid input! Please enter y or n.*");
+          }
      }
 
 
@@ -281,6 +369,10 @@ class Printer {
                     System.out.println("\n*Print job completed successfully!*");
 
                     if(!printingQueue.isEmpty()){
+                         if(!askStartNext(printingQueue.peek())){
+                              System.out.println("\n*Returning to the menu...*");
+                              break;
+                         }
                          System.out.println("\n*Moving to the next print job...*");
                          TimeUnit.MILLISECONDS.sleep(1500);
                          clearScreen();
@@ -419,7 +511,7 @@ public class PrintingQueueSimulation {
                          break;
                     case 7:
                          start = false;
-                         System.out.println("\n*Thank you for using the Printing Simulation made by Aldave & Cabilao. :/*");
+                         System.out.println("\n*Thank you for using the Printing Simulation made by Aldave & Cabilao. :/*\n");
                          break;
                     default:
                          System.out.println("\n*Invalid choice! Please choose between 1-7.*");
@@ -431,7 +523,7 @@ public class PrintingQueueSimulation {
                     } catch (InterruptedException e) {
                          Thread.currentThread().interrupt();
                     }
-                    System.out.println("------Printing Simulation------");
+                    System.out.println("\n------Printing Simulation------");
                }
 
           }
