@@ -1,3 +1,7 @@
+//Members:
+//Resty S. Aldave
+//John Michael L. Cabilao
+
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 import java.util.Queue;
