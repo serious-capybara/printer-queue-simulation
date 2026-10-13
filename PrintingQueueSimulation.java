@@ -35,13 +35,8 @@ class FileDetails {
 
                if (hasInvalidChar(name)) {
                     System.out.println("\n*Invalid input! File name must not contain any of these characters: % $ . , ^ + = * !*");
-                    try {
-                         Thread.sleep(1500);
-                    } catch (InterruptedException e) {
-                         Thread.currentThread().interrupt();
-                    }
-                    System.out.print("\033[H\033[2J");
-                    System.out.flush();
+                    Printer.pause(1000);
+                    Printer.clearScreenStatic();
                     continue;
                }
 
@@ -52,22 +47,21 @@ class FileDetails {
 
           this.fileType = Printer.selectFileTypeStatic(fileName);
 
-          System.out.print("\033[H\033[2J");
-          System.out.flush();
-          System.out.println("\nFile name: " + getFullFileName());
+          // Keep asking for the page count until a valid whole number is typed
+          while (true) {
+               Printer.clearScreenStatic();
+               System.out.println("\nFile name: " + getFullFileName());
+               System.out.print("\nHow many pages does it have: ");
 
-          System.out.print("\nHow many pages does it have: ");
-
-          // checking for text input
-          if (!input.hasNextInt()) {
-               System.out.println("\n*Invalid input! Please enter a whole number for the page count.*");
-               input.nextLine();
-               return;
+               String line = input.nextLine().trim();
+               try {
+                    this.filePages = Integer.parseInt(line);
+                    break;
+               } catch (NumberFormatException e) {
+                    System.out.println("\n*Invalid input! Please enter a whole number for the page count.*");
+                    Printer.pause(1000);
+               }
           }
-
-          int pages = input.nextInt();
-          input.nextLine();
-          this.filePages = pages;
      }
 
      // Mergg the details
@@ -91,123 +85,83 @@ class Printer {
 
      //for clearing the screen
      public void clearScreen() {
+          clearScreenStatic();
+     }
+
+     public static void clearScreenStatic() {
           System.out.print("\033[H\033[2J");
           System.out.flush();
      }
 
-     private static void enableRawInput() {
+     // time pause
+     public static void pause(int ms) {
           try {
-               String os = System.getProperty("os.name").toLowerCase();
-               if (!os.contains("win")) {
-                    Runtime.getRuntime().exec(new String[]{"sh", "-c", "stty -icanon -echo < /dev/tty"}).waitFor();
+               Thread.sleep(ms);
+          } catch (InterruptedException e) {
+               Thread.currentThread().interrupt();
+          }
+     }
+     
+     private static final Scanner numberInput = new Scanner(System.in);
+     
+     // for re print sa terminal. used when the action selection is wrong it will print the same look before keep the interaction clean
+     private static int readNumber(int max, Runnable redraw) {
+          while (true) {
+               System.out.print("\nEnter the number of your choice: ");
+               String line = numberInput.nextLine().trim();
+
+               if (line.isEmpty()) {
+                    System.out.println("\n*You didn't enter anything! Please enter a number from 1 to " + max + ".*");
+               } else {
+                    try {
+                         int n = Integer.parseInt(line);
+                         if (n >= 1 && n <= max) {
+                              return n;
+                         }
+                         System.out.println("\n*Invalid choice! Please enter a number from 1 to " + max + ".*");
+                    } catch (NumberFormatException e) {
+                         System.out.println("\n*Invalid choice! Please enter a number from 1 to " + max + ".*");
+                    }
                }
-          } catch (Exception e) {
-          }
-     }
 
-     private static void restoreTerminal() {
-          try {
-               String os = System.getProperty("os.name").toLowerCase();
-               if (!os.contains("win")) {
-                    Runtime.getRuntime().exec(new String[]{"sh", "-c", "stty sane < /dev/tty"}).waitFor();
-               }
-          } catch (Exception e) {
-          }
-     }
-
-     private static int readKey() {
-          try {
-               return System.in.read();
-          } catch (Exception e) {
-               return -1;
+               pause(800);
+               redraw.run();
           }
      }
 
 
-     // Selecting file tpe using up/down arrow instead of manualli tiping it
+     //before selecting a file type is as easy by just using up and down button but it was later change for the reason for compatability with window os
      public static String selectFileTypeStatic(String fileName) {
           java.util.List<String> allowedTypes = java.util.List.of("txt", "png", "jpeg", "gif", "docx", "md");
-          int selectedIndex = 0;
 
-          enableRawInput();
-
-          try {
-               while (true) {
-                    System.out.print("\033[H\033[2J");
-                    System.out.flush();
-
-                    System.out.println("\nFile name: " + fileName);
-                    System.out.println("\n*Select file type using Up/Down, then press Enter to proceed*\n");
-                    for (int i = 0; i < allowedTypes.size(); i++) {
-                         if (i == selectedIndex) {
-                              System.out.println("   > " + allowedTypes.get(i));
-                         } else {
-                              System.out.println("     " + allowedTypes.get(i));
-                         }
-                    }
-
-                    int c = readKey();
-
-                    if (c == 27) {
-                         int c2 = readKey();
-                         int c3 = readKey();
-                         if (c2 == 91) {
-                              if (c3 == 65) {
-                                   selectedIndex = (selectedIndex - 1 + allowedTypes.size()) % allowedTypes.size();
-                              } else if (c3 == 66) {
-                                   selectedIndex = (selectedIndex + 1) % allowedTypes.size();
-                              }
-                         }
-                    } else if (c == 10 || c == 13) {
-                         String chosen = allowedTypes.get(selectedIndex);
-                         return chosen;
-                    }
+          Runnable draw = () -> {
+               clearScreenStatic();
+               System.out.println("\nFile name: " + fileName);
+               System.out.println("\n*Type the number of the file type, then press Enter.*\n");
+               for (int i = 0; i < allowedTypes.size(); i++) {
+                    System.out.println("     " + (i + 1) + ". " + allowedTypes.get(i));
                }
-          } finally {
-               restoreTerminal();
-          }
+          };
+
+          // for drawing again the terminal after incorrect action selected
+          draw.run();
+          return allowedTypes.get(readNumber(allowedTypes.size(), draw) - 1);
      }
 
-     // same to the selecting in the file type
+     //no more up and down also 
      public static int selectMenuOption(String[] options) {
-          int selectedIndex = 0;
-
-          enableRawInput();
-          try {
-               while (true) {
-                    System.out.print("\033[H\033[2J");
-                    System.out.flush();
-
-                    System.out.println("-----------Printing Simulation-----------");
-
-                    System.out.println("\n*Use Up/Down, then press Enter to choose.*\n");
-                    for (int i = 0; i < options.length; i++) {
-                         if (i == selectedIndex) {
-                              System.out.println("   > " + options[i]);
-                         } else {
-                              System.out.println("     " + options[i]);
-                         }
-                    }
-
-                    int c = readKey();
-
-                    if (c == 27) {
-                         int c2 = readKey();
-                         int c3 = readKey();
-                         if (c2 == 91) {
-                              if (c3 == 65) {
-                                   selectedIndex = (selectedIndex - 1 + options.length) % options.length;
-                              } else if (c3 == 66) {
-                                   selectedIndex = (selectedIndex + 1) % options.length;
-                              }
-                         }
-                    } else if (c == 10 || c == 13) {
-                         return selectedIndex + 1;
-                    }
+          Runnable draw = () -> {
+               clearScreenStatic();
+               System.out.println("-----------Printing Simulation-----------");
+               System.out.println("\n*Type the number of your choice, then press Enter.*\n");
+               for (int i = 0; i < options.length; i++) {
+                    System.out.println("     " + (i + 1) + ". " + options[i]);
                }
-          } finally {
-               restoreTerminal();
-          }
+          };
+
+          // same here it draw again if action is incorrect
+          draw.run();
+          return readNumber(options.length, draw);
      }
 
 
@@ -217,7 +171,7 @@ class Printer {
           // connected sa checking input text... ug checking name is empti
           if (newFile.fileName == null || newFile.fileName.isEmpty() || newFile.getFilePages() == -1) {
                return;
-          } //not working the ie name is empty
+          }
 
           //added a limit para dili usahon ang >500 pages
           if (newFile.getFilePages() <= 0 || newFile.getFilePages() > 500) {
@@ -231,56 +185,28 @@ class Printer {
      }
 
 
+     //same here no more use of up and down
      public int selectJobToRemove(){
           java.util.List<FileDetails> jobs = new java.util.ArrayList<>(printingQueue);
-          int selectedIndex = 0;
           int totalOptions = jobs.size() + 1;
 
-          enableRawInput();
-          try {
-               while (true) {
-                    System.out.print("\033[H\033[2J");
-                    System.out.flush();
-
-                    System.out.println("-----------Remove Print Job-----------");
-
-                    System.out.println("\n*Use Up/Down, then press Enter to remove the selected file.*\n");
-                    for (int i = 0; i < jobs.size(); i++) {
-                         String label = (i + 1) + ". " + jobs.get(i).getFullFileName() + " | Pages: " + jobs.get(i).getFilePages();
-                         if (i == selectedIndex) {
-                              System.out.println("   > " + label);
-                         } else {
-                              System.out.println("     " + label);
-                         }
-                    }
-                    if (selectedIndex == jobs.size()) {
-                         System.out.println("\n   > Back to Menu");
-                    } else {
-                         System.out.println("\n     Back to Menu");
-                    }
-
-                    int c = readKey();
-
-                    if (c == 27) {
-                         int c2 = readKey();
-                         int c3 = readKey();
-                         if (c2 == 91) {
-                              if (c3 == 65) {
-                                   selectedIndex = (selectedIndex - 1 + totalOptions) % totalOptions;
-                              } else if (c3 == 66) {
-                                   selectedIndex = (selectedIndex + 1) % totalOptions;
-                              }
-                         }
-                    } else if (c == 10 || c == 13) {
-                         if (selectedIndex == jobs.size()) {
-                              return -1;
-                         }
-                         return selectedIndex;
-                    }
+          Runnable draw = () -> {
+               clearScreenStatic();
+               System.out.println("-----------Remove Print Job-----------");
+               System.out.println("\n*Type the number of the file to remove, then press Enter.*\n");
+               for (int i = 0; i < jobs.size(); i++) {
+                    System.out.println("     " + (i + 1) + ". " + jobs.get(i).getFullFileName() + " | Pages: " + jobs.get(i).getFilePages());
                }
-          } finally {
-               restoreTerminal();
+               System.out.println("\n     " + totalOptions + ". Back to Menu");
+          };
+
+          // draw if incorrect
+          draw.run();
+          int n = readNumber(totalOptions, draw);
+          if (n == totalOptions) {
+               return -1;
           }
+          return n - 1;
      }
 
 
@@ -315,6 +241,7 @@ class Printer {
           return false;
      }
 
+     // for asking if to continue with the next queue to print
      private boolean askStartNext(FileDetails next){
           while(true){
                System.out.print("\n*The next print \"" + next.getFullFileName() + "\" will be started (y/n)?* ");
@@ -327,6 +254,9 @@ class Printer {
                     return false;
                }
                System.out.println("\n*Invalid input! Please enter y or n.*");
+               pause(1000);
+               clearScreen();
+               System.out.println("\n*Print job completed successfully!*");
           }
      }
 
@@ -374,7 +304,7 @@ class Printer {
                               break;
                          }
                          System.out.println("\n*Moving to the next print job...*");
-                         TimeUnit.MILLISECONDS.sleep(1500);
+                         TimeUnit.MILLISECONDS.sleep(1000);
                          clearScreen();
                     }
                }
@@ -396,18 +326,18 @@ class Printer {
                System.out.println("\n--- Full Printing Queue ---\n");
                int count = 1;
                for(FileDetails job : printingQueue){
-                    System.out.println(count + ". " + job.getFullFileName() + " | Pages: " + job.getFilePages()); //New added, naa also display sa Pages
+                    System.out.println(count + ". " + job.getFullFileName() + " | Pages: " + job.getFilePages());
                     count++;
                }
           }
      }
-     
+
      public void quickQueueView(){
           System.out.println("\n*Queueing " + printingQueue.size() + " of files. Ready to print.*");
      }
 
 
-     //sorting
+     //sorting 0 - z
      public void sortPrintedFiles(){
           for(int i = 0; i < printedFiles.size() - 1; i++){
                int minIndex = i;
@@ -443,7 +373,7 @@ class Printer {
 
 
 public class PrintingQueueSimulation {
-    
+
      public static void clearScreen(){
           System.out.print("\033[2J\033[H");
           System.out.flush();
@@ -470,8 +400,6 @@ public class PrintingQueueSimulation {
 
           Printer job = new Printer();
           job.clearScreen();
-
-          System.out.println("------Printing Simulation------");
 
           boolean start = true;
 
@@ -518,12 +446,7 @@ public class PrintingQueueSimulation {
                }
 
                if(start){
-                    try {
-                         Thread.sleep(3000);
-                    } catch (InterruptedException e) {
-                         Thread.currentThread().interrupt();
-                    }
-                    System.out.println("\n------Printing Simulation------");
+                    Printer.pause(3000);
                }
 
           }
