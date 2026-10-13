@@ -148,7 +148,7 @@ class Printer {
           return allowedTypes.get(readNumber(allowedTypes.size(), draw) - 1);
      }
 
-     //no more up and down also 
+     //no more up and down
      public static int selectMenuOption(String[] options) {
           Runnable draw = () -> {
                clearScreenStatic();
